@@ -22,9 +22,8 @@ public static class DataShortcutCommands
       var incoming = new List<Dictionary<string, object?>>();
       var exportable = new List<Dictionary<string, object?>>();
 
-      foreach (ObjectId objectId in civilDoc.GetSurfaceIds())
+      foreach (var surface in CivilObjectUtils.GetSurfaces(civilDoc, transaction))
       {
-        var surface = CivilObjectUtils.GetRequiredObject<CivilSurface>(transaction, objectId, OpenMode.ForRead);
         RegisterShortcutCandidate(surface, "surface", incoming, exportable);
       }
 
@@ -537,7 +536,8 @@ public static class DataShortcutCommands
       ["status"] = status,
       ["isValid"] = isValid,
       ["isStale"] = isStale,
-      ["isPartial"] = SafeBool(() => entity.IsPartialReferenceObject) ?? false,
+      // Entity.IsPartialReferenceObject does not exist in the Civil 3D 2024 API.
+      ["isPartial"] = SafeBool(() => Civil3DCompatibility.GetPropertyValue<bool?>(entity, "IsPartialReferenceObject")) ?? false,
       ["sourceDrawing"] = sourceDrawing,
       ["sourceDrawingExists"] = sourceExisting,
       ["sourceObjectName"] = key == null ? null : SafeString(() => key.Name),

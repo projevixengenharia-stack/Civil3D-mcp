@@ -67,8 +67,10 @@ public sealed class RpcTcpServer
   {
     try
     {
+      // Plain using: NetworkStream has no DisposeAsync on .NET Framework (Civil 3D 2024), and on
+      // .NET 8/10 its DisposeAsync only calls Dispose.
       using (client)
-      await using (var stream = client.GetStream())
+      using (var stream = client.GetStream())
       {
         var request = await ReadSingleJsonObjectAsync(stream, cancellationToken);
         if (string.IsNullOrWhiteSpace(request))

@@ -5,8 +5,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <!-- /p:TargetFramework=net48 runs these checks on the Civil 3D 2024 runtime and its polyfills. -->
+  <Import Project="..\..\Civil3D-MCP-Plugin\NetFramework.props" />
 
   <ItemGroup>
+    <Compile Include="..\..\Civil3D-MCP-Plugin\NetFrameworkPolyfills.cs" Link="NetFrameworkPolyfills.cs" />
     <Compile Include="..\..\Civil3D-MCP-Plugin\FileBoundary.cs" Link="FileBoundary.cs" />
     <Compile Include="..\..\Civil3D-MCP-Plugin\JsonRpcProtocol.cs" Link="JsonRpcProtocol.cs" />
     <Compile Include="..\..\Civil3D-MCP-Plugin\JobRegistry.cs" Link="JobRegistry.cs" />

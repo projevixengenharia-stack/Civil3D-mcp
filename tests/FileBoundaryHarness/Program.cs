@@ -16,6 +16,17 @@ Environment.SetEnvironmentVariable("CIVIL3D_EXPORT_ROOTS", allowedRoot);
 
 try
 {
+  // Same expectations on net8 (BCL) and net48 (NetFrameworkPolyfills), so the 2024 build keeps the boundary.
+  Assert(Path.GetRelativePath(allowedRoot, allowedRoot + "\\") == ".", "GetRelativePath same-folder mismatch.");
+  Assert(Path.GetRelativePath(allowedRoot, Path.Combine(allowedRoot, "a", "b.csv")) == "a\\b.csv", "GetRelativePath child mismatch.");
+  Assert(Path.GetRelativePath(allowedRoot, Path.Combine(outsideRoot, "x.csv")) == "..\\outside\\x.csv", "GetRelativePath sibling mismatch.");
+  Assert(Path.GetRelativePath(allowedRoot.ToUpperInvariant(), Path.Combine(allowedRoot, "x")) == "x", "GetRelativePath is not case-insensitive.");
+  Assert(Path.GetRelativePath(@"C:\a", @"D:\b") == @"D:\b", "GetRelativePath across drives mismatch.");
+  Assert(Path.IsPathFullyQualified(@"C:\x") && Path.IsPathFullyQualified(@"\\server\share\x") && Path.IsPathFullyQualified(@"\\?\C:\x"),
+    "IsPathFullyQualified rejected a qualified path.");
+  Assert(!Path.IsPathFullyQualified(@"C:x") && !Path.IsPathFullyQualified(@"\x") && !Path.IsPathFullyQualified("x"),
+    "IsPathFullyQualified accepted a relative path.");
+
   var nestedOutput = Path.Combine(allowedRoot, "reports", "quantities.csv");
   var canonical = FileBoundary.ResolveExportPath(nestedOutput, overwrite: false, ".csv");
   Assert(canonical == Path.GetFullPath(nestedOutput), "Allowed output was not canonicalized.");
@@ -284,11 +295,11 @@ try
   Assert(JobRegistry.GetStats().Total <= stats.Capacity, "Job registry exceeded capacity under pressure.");
 
   var disconnectPort = GetFreeTcpPort();
-  var handlerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-  var handlerCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+  var handlerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+  var handlerCancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
   var rpcServer = new RpcTcpServer(disconnectPort, async (_, cancellationToken) =>
   {
-    handlerStarted.TrySetResult();
+    handlerStarted.TrySetResult(true);
     try
     {
       await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
@@ -296,7 +307,7 @@ try
     }
     catch (OperationCanceledException)
     {
-      handlerCancelled.TrySetResult();
+      handlerCancelled.TrySetResult(true);
       throw;
     }
   });
@@ -306,7 +317,7 @@ try
     using var client = new TcpClient();
     await client.ConnectAsync(IPAddress.Loopback, disconnectPort);
     var requestBytes = Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"method\":\"wait\",\"id\":\"disconnect-test\"}");
-    await client.GetStream().WriteAsync(requestBytes);
+    await client.GetStream().WriteAsync(requestBytes, 0, requestBytes.Length);
     await handlerStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
     client.Dispose();
     await handlerCancelled.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -324,9 +335,9 @@ try
     using var responseClient = new TcpClient();
     await responseClient.ConnectAsync(IPAddress.Loopback, responsePort);
     var requestBytes = Encoding.UTF8.GetBytes("{\"jsonrpc\":\"2.0\",\"method\":\"ping\",\"id\":\"response-test\"}");
-    await responseClient.GetStream().WriteAsync(requestBytes);
+    await responseClient.GetStream().WriteAsync(requestBytes, 0, requestBytes.Length);
     var responseBuffer = new byte[128];
-    var responseLength = await responseClient.GetStream().ReadAsync(responseBuffer).AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+    var responseLength = await responseClient.GetStream().ReadAsync(responseBuffer, 0, responseBuffer.Length).WaitAsync(TimeSpan.FromSeconds(3));
     Assert(Encoding.UTF8.GetString(responseBuffer, 0, responseLength) == "{\"ok\":true}", "RPC response path stalled while stopping the disconnect monitor.");
   }
   finally
@@ -441,3 +452,11 @@ static int GetFreeTcpPort()
   listener.Stop();
   return port;
 }
+
+#if NETFRAMEWORK
+static class Net48TestShims
+{
+  public static async Task<T> WaitAsync<T>(this Task<T> task, TimeSpan timeout) =>
+    await Task.WhenAny(task, Task.Delay(timeout)) == task ? await task : throw new TimeoutException();
+}
+#endif

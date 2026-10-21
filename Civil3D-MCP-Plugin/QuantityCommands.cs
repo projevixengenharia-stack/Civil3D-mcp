@@ -391,9 +391,8 @@ public static class QuantityCommands
       {
         sectionsIncluded.Add("surfaces");
         sb.AppendLine("Section,Name,Type,MinElevation,MaxElevation,NumberOfPoints,Units");
-        foreach (ObjectId surfId in civilDoc.GetSurfaceIds())
+        foreach (var surface in CivilObjectUtils.GetSurfaces(civilDoc, transaction))
         {
-          var surface = CivilObjectUtils.GetRequiredObject<CivilSurface>(transaction, surfId, OpenMode.ForRead);
           if (filterNames != null && !filterNames.Contains(surface.Name)) continue;
           var gp = surface.GetGeneralProperties();
           sb.AppendLine($"Surface,{EscapeCsv(surface.Name)},{surface.GetType().Name},{gp.MinimumElevation:F3},{gp.MaximumElevation:F3},{gp.NumberOfPoints},{CivilObjectUtils.LinearUnits(database)}");

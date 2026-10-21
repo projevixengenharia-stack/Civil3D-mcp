@@ -294,10 +294,9 @@ public static class CorridorEditingCommands
     switch (targetType.ToLowerInvariant())
     {
       case "surface":
-        foreach (ObjectId id in civilDoc.GetSurfaceIds())
+        foreach (var s in CivilObjectUtils.GetSurfaces(civilDoc, transaction))
         {
-          var s = CivilObjectUtils.GetRequiredObject<CivilSurface>(transaction, id, OpenMode.ForRead);
-          if (string.Equals(s.Name, targetName, StringComparison.OrdinalIgnoreCase)) return id;
+          if (string.Equals(s.Name, targetName, StringComparison.OrdinalIgnoreCase)) return s.ObjectId;
         }
         break;
       case "alignment":

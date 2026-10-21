@@ -17,6 +17,11 @@
 
 .EXAMPLE
   .\scripts\build-2027.ps1 -Install
+
+.EXAMPLE
+  # Civil 3D 2024 (.NET Framework 4.8); installs as its own Civil3DMcp2024.bundle.
+  .\scripts\gather-refs-2027.ps1 -AcadRoot "C:\Program Files\Autodesk\AutoCAD 2024" -Destination .\C_References\2024
+  .\scripts\build-2027.ps1 -TargetFramework net48 -ReferencesPath .\C_References\2024 -Install
 #>
 param(
   [ValidateSet("Release", "Debug")]
@@ -39,6 +44,8 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
 if (-not (Test-Path $ReferencesPath)) {
   throw "References not staged at '$ReferencesPath'. Run scripts\gather-refs-2027.ps1 first."
 }
+# MSBuild resolves a relative path against the project folder, not the caller's.
+$ReferencesPath = (Resolve-Path $ReferencesPath).Path
 
 Write-Host "Building $Configuration ($TargetFramework) against $ReferencesPath"
 

@@ -463,7 +463,24 @@ commands in between, all ok, median 0.10 s.
 ## Deploy-script regression checks
 
 - `install-bundle.ps1` derives `SeriesMin/Max` from the build's target framework
-  (`net10.0-windows` → R26.0, `net8.0-windows` → R25.1) and refuses anything else.
+  (`net10.0-windows` → R26.0, `net8.0-windows` → R25.1, `net48` → R24.3) and refuses
+  anything else. A `net48` build installs as its own `Civil3DMcp2024.bundle` with its own
+  GUIDs, leaving the 2026/2027 `Civil3DMcp.bundle` untouched.
+
+## Civil 3D 2024 (.NET Framework 4.8)
+
+- Build: `gather-refs-2027.ps1 -AcadRoot "C:\Program Files\Autodesk\AutoCAD 2024" -Destination C_References\2024`,
+  then `build-2027.ps1 -TargetFramework net48 -ReferencesPath C_References\2024 -Install`.
+- `Civil3D-MCP-Plugin/NetFrameworkPolyfills.cs` (net48 only) supplies the .NET 8+ members the
+  shared code uses, resolves the bundled System.Text.Json dependencies (acad.exe ignores plugin
+  binding redirects and ships an older `System.Runtime.CompilerServices.Unsafe`), and makes
+  `NetworkStream` reads honour cancellation so the disconnect monitor cannot stall responses.
+- Run the boundary/RPC harness on the 2024 runtime:
+  `dotnet restore tests/FileBoundaryHarness/FileBoundaryHarness.csproj -p:TargetFramework=net48`, then
+  `dotnet build --no-restore tests/FileBoundaryHarness/FileBoundaryHarness.csproj -p:TargetFramework=net48`
+  (a plain build over an existing net8 `obj` can miss the net48 reference assemblies: MSB3644)
+  then `tests/FileBoundaryHarness/bin/Debug/net48/FileBoundaryHarness.exe` (restore without the
+  property afterwards before the next net8 run).
 - Both install and `-Uninstall` refuse while a running Civil 3D holds the bundle DLL
   (probe: hold the DLL open exclusively, run the script, expect refusal, verify the
   bundle is untouched).

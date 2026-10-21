@@ -9,6 +9,7 @@
     <Civil3DReferencesPath Condition="'$(Civil3DReferencesPath)' == ''">..\C_References</Civil3DReferencesPath>
   </PropertyGroup>
   <Import Project="GeneratedVersion.props" />
+  <Import Project="NetFramework.props" />
 
   <Target Name="ValidateCivil3DReferences" BeforeTargets="PrepareForBuild">
     <Error Condition="!Exists('$(Civil3DReferencesPath)\accoremgd.dll') Or !Exists('$(Civil3DReferencesPath)\AcDbMgd.dll') Or !Exists('$(Civil3DReferencesPath)\acmgd.dll') Or !Exists('$(Civil3DReferencesPath)\AecBaseMgd.dll') Or !Exists('$(Civil3DReferencesPath)\AeccDbMgd.dll') Or !Exists('$(Civil3DReferencesPath)\AeccPressurePipesMgd.dll')"

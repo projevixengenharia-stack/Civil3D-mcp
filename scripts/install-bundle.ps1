@@ -24,6 +24,36 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot  = Split-Path -Parent $PSScriptRoot
+
+if (-not $Uninstall) {
+  if (-not $SourceDir) {
+    $SourceDir = Join-Path $repoRoot "Civil3D-MCP-Plugin\bin\Release\net10.0-windows"
+  }
+  $dll = Join-Path $SourceDir "Civil3DMcpPlugin.dll"
+  if (-not (Test-Path $dll)) {
+    throw "Plugin not built at '$dll'. Run scripts\build-2027.ps1 first."
+  }
+
+  # The bundle's RuntimeRequirements series must match the Civil 3D release the
+  # DLL was compiled against, or AutoCAD silently never loads it. The build's
+  # target framework (last path segment of the output dir) tells us which:
+  # net48 is the 2024 build (R24.3), net8.0-windows the 2026 build (R25.1),
+  # net10.0-windows the 2027 build (R26.0).
+  $tfm = Split-Path -Leaf $SourceDir
+  $series = switch ($tfm) {
+    "net48"           { "R24.3" }
+    "net8.0-windows"  { "R25.1" }
+    "net10.0-windows" { "R26.0" }
+    default { throw "Cannot infer the Civil 3D series from '$tfm'. Pass a build output dir named by target framework (net48, net8.0-windows or net10.0-windows)." }
+  }
+
+  # Civil 3D 2024 gets its own bundle (and package GUIDs below), so installing it
+  # never replaces the 2026/2027 bundle. Uninstall it with -BundleName Civil3DMcp2024.bundle.
+  if ($series -eq "R24.3" -and -not $PSBoundParameters.ContainsKey('BundleName')) {
+    $BundleName = "Civil3DMcp2024.bundle"
+  }
+}
+
 $bundleDir = Join-Path $BundleRoot $BundleName
 $contents  = Join-Path $bundleDir "Contents"
 
@@ -66,25 +96,6 @@ if ($Uninstall) {
   exit 0
 }
 
-if (-not $SourceDir) {
-  $SourceDir = Join-Path $repoRoot "Civil3D-MCP-Plugin\bin\Release\net10.0-windows"
-}
-$dll = Join-Path $SourceDir "Civil3DMcpPlugin.dll"
-if (-not (Test-Path $dll)) {
-  throw "Plugin not built at '$dll'. Run scripts\build-2027.ps1 first."
-}
-
-# The bundle's RuntimeRequirements series must match the Civil 3D release the
-# DLL was compiled against, or AutoCAD silently never loads it. The build's
-# target framework (last path segment of the output dir) tells us which:
-# net8.0-windows is the 2026 build (R25.1), net10.0-windows the 2027 build (R26.0).
-$tfm = Split-Path -Leaf $SourceDir
-$series = switch ($tfm) {
-  "net8.0-windows"  { "R25.1" }
-  "net10.0-windows" { "R26.0" }
-  default { throw "Cannot infer the Civil 3D series from '$tfm'. Pass a build output dir named by target framework (net8.0-windows or net10.0-windows)." }
-}
-
 New-Item -ItemType Directory -Path $contents -Force | Out-Null
 
 # The six Autodesk references are Private=false in the csproj, so they never
@@ -101,14 +112,20 @@ $appVersion = (Get-Item $dll).VersionInfo.FileVersion
 if (-not $appVersion) { $appVersion = "1.0.0.0" }
 
 # Stable GUIDs so reinstalls upgrade in place rather than registering a duplicate.
+# The 2024 bundle is a separate package installed alongside, so it has its own pair.
+$productCode, $upgradeCode = if ($series -eq "R24.3") {
+  "{6C5A9E86-FF56-4723-9DBA-291AA6A14F3B}", "{E0449849-1ABF-40AF-8B37-F6DCA9AE57BC}"
+} else {
+  "{3F7C1A94-6E2D-4B85-9C13-5A8E0D2F7B41}", "{8B24E5D7-1C3F-4A69-B0E2-7D9146C8F3A5}"
+}
 $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage
   SchemaVersion="1.0"
   AppVersion="$appVersion"
   Author="Sacred-G"
-  ProductCode="{3F7C1A94-6E2D-4B85-9C13-5A8E0D2F7B41}"
-  UpgradeCode="{8B24E5D7-1C3F-4A69-B0E2-7D9146C8F3A5}"
+  ProductCode="$productCode"
+  UpgradeCode="$upgradeCode"
   Name="Civil 3D MCP Plugin"
   PreferNewestAcross="AppData|ProgramFiles"
   >

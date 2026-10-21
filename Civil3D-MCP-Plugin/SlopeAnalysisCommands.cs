@@ -202,12 +202,7 @@ public static class SlopeAnalysisCommands
 
   private static CivilSurface? GetFirstSurface(CivilDocument civilDoc, Transaction transaction)
   {
-    foreach (ObjectId id in civilDoc.GetSurfaceIds())
-    {
-      return CivilObjectUtils.GetRequiredObject<CivilSurface>(transaction, id, OpenMode.ForRead);
-    }
-
-    return null;
+    return CivilObjectUtils.GetSurfaces(civilDoc, transaction).FirstOrDefault();
   }
 
   private static Profile? FindProfileByName(Alignment alignment, Transaction transaction, string name)

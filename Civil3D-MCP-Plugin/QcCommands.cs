@@ -686,9 +686,8 @@ public static class QcCommands
         // Check surfaces for missing style
         if (checkStyleViolations && (string.IsNullOrWhiteSpace(objectType) || objectType!.Equals("surface", StringComparison.OrdinalIgnoreCase)))
         {
-          foreach (ObjectId surfaceId in civilDoc.GetSurfaceIds())
+          foreach (var surface in CivilObjectUtils.GetSurfaces(civilDoc, transaction))
           {
-            var surface = CivilObjectUtils.GetRequiredObject<CivilSurface>(transaction, surfaceId, OpenMode.ForRead);
             if (surface.StyleId == ObjectId.Null)
             {
               findings.Add(new Dictionary<string, object?>
@@ -811,9 +810,8 @@ public static class QcCommands
           checksRun++;
           sectionsIncluded.Add("surfaces");
           sb.AppendLine("--- SURFACE CHECKS ---");
-          foreach (ObjectId surfId in civilDoc.GetSurfaceIds())
+          foreach (var surface in CivilObjectUtils.GetSurfaces(civilDoc, transaction))
           {
-            var surface = CivilObjectUtils.GetRequiredObject<CivilSurface>(transaction, surfId, OpenMode.ForRead);
             var gp = CivilObjectUtils.InvokeMethod(surface, "GetGeneralProperties");
             var npts = CivilObjectUtils.GetPropertyValue<int?>(gp, "NumberOfPoints") ?? 0;
             var ntri = CivilObjectUtils.GetTriangleCount(surface);

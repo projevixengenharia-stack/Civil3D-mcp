@@ -145,11 +145,23 @@ public static class CivilObjectUtils
     throw new JsonRpcDispatchException("CIVIL3D.OBJECT_NOT_FOUND", $"Profile '{name}' was not found on alignment '{alignment.Name}'.");
   }
 
-  public static CivilSurface FindSurfaceByName(CivilDocument civilDoc, Transaction transaction, string name, OpenMode openMode)
+  // GetSurfaceIds() also lists surfaces this release can only load as proxies (saved by a newer
+  // Civil 3D or missing an object enabler); casting one throws, so skip them.
+  public static IEnumerable<CivilSurface> GetSurfaces(CivilDocument civilDoc, Transaction transaction, OpenMode openMode = OpenMode.ForRead)
   {
     foreach (ObjectId objectId in civilDoc.GetSurfaceIds())
     {
-      var surface = GetRequiredObject<CivilSurface>(transaction, objectId, openMode);
+      if (transaction.GetObject(objectId, OpenMode.ForRead) is CivilSurface)
+      {
+        yield return (CivilSurface)transaction.GetObject(objectId, openMode);
+      }
+    }
+  }
+
+  public static CivilSurface FindSurfaceByName(CivilDocument civilDoc, Transaction transaction, string name, OpenMode openMode)
+  {
+    foreach (var surface in GetSurfaces(civilDoc, transaction, openMode))
+    {
       if (string.Equals(surface.Name, name, StringComparison.OrdinalIgnoreCase))
       {
         return surface;

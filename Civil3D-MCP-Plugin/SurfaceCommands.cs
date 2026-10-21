@@ -14,9 +14,7 @@ public static class SurfaceCommands
   {
     return CivilExecution.ReadAsync<object?>((doc, civilDoc, database, transaction) =>
     {
-      var surfaces = civilDoc.GetSurfaceIds()
-        .Cast<ObjectId>()
-        .Select(id => CivilObjectUtils.GetRequiredObject<CivilSurface>(transaction, id, OpenMode.ForRead))
+      var surfaces = CivilObjectUtils.GetSurfaces(civilDoc, transaction)
         .Select(surface => new Dictionary<string, object?>
         {
           ["name"] = surface.Name,

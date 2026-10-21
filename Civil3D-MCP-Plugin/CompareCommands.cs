@@ -360,7 +360,13 @@ public static class CompareCommands
       {
         Guard($"surface {id.Handle}", () =>
         {
-          var surface = (CivilSurface)transaction.GetObject(id, OpenMode.ForRead);
+          // A surface this release can only load as a proxy (saved by a newer Civil 3D) cannot be described.
+          if (transaction.GetObject(id, OpenMode.ForRead) is not CivilSurface surface)
+          {
+            fingerprint.Warnings.Add($"surface {id.Handle}: loaded as a proxy object; skipped.");
+            return;
+          }
+
           fingerprint.CivilObjects.Add(DescribeSurface(surface));
         });
       }

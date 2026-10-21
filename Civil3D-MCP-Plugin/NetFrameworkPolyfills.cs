@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace Civil3DMcpPlugin;
 
@@ -99,6 +100,16 @@ internal static class NetFrameworkPolyfills
     public static Task<string> ReadAllTextAsync(string path, Encoding encoding) =>
       Task.Run(() => File.ReadAllText(path, encoding));
 
+    public static DateTime GetLastWriteTimeUtc(SafeFileHandle fileHandle)
+    {
+      if (!GetFileTime(fileHandle, out _, out _, out var lastWrite))
+      {
+        throw new IOException(new Win32Exception(Marshal.GetLastWin32Error()).Message);
+      }
+
+      return DateTime.FromFileTimeUtc(lastWrite);
+    }
+
     // Overwrite uses the same Win32 call as .NET, so it stays an atomic replace.
     public static void Move(string sourceFileName, string destFileName, bool overwrite)
     {
@@ -113,6 +124,12 @@ internal static class NetFrameworkPolyfills
         throw new IOException(new Win32Exception(Marshal.GetLastWin32Error()).Message);
       }
     }
+  }
+
+  extension(string)
+  {
+    // PlotCommands formats coordinates with string.Create(CultureInfo.InvariantCulture, $"...").
+    public static string Create(IFormatProvider provider, FormattableString text) => text.ToString(provider);
   }
 
   extension(Convert)
@@ -153,6 +170,9 @@ internal static class NetFrameworkPolyfills
     return parts.ToArray();
   }
 
+  public static string[] Split(this string text, string separator) =>
+    text.Split(new[] { separator }, StringSplitOptions.None);
+
   public static bool StartsWith(this string text, char value) => text.Length > 0 && text[0] == value;
 
   public static TValue? GetValueOrDefault<TKey, TValue>(this IReadOnlyDictionary<TKey, TValue> dictionary, TKey key) =>
@@ -178,6 +198,17 @@ internal static class NetFrameworkPolyfills
     MemoryMarshal.TryGetArray(buffer, out var segment)
       ? stream.WriteAsync(segment.Array!, segment.Offset, segment.Count, cancellationToken)
       : stream.WriteAsync(buffer.ToArray(), 0, buffer.Length, cancellationToken);
+
+  public static void ReadExactly(this Stream stream, byte[] buffer)
+  {
+    var offset = 0;
+    while (offset < buffer.Length)
+    {
+      var read = stream.Read(buffer, offset, buffer.Length - offset);
+      if (read == 0) throw new EndOfStreamException();
+      offset += read;
+    }
+  }
 
   // .NET Framework's NetworkStream ignores the token once a read is pending, which would leave the
   // disconnect monitor (and so every RPC response) waiting forever. Abandon the read on cancellation;
@@ -208,5 +239,9 @@ internal static class NetFrameworkPolyfills
   [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
   [return: MarshalAs(UnmanagedType.Bool)]
   private static extern bool MoveFileEx(string existingFileName, string newFileName, int flags);
+
+  [DllImport("kernel32.dll", SetLastError = true)]
+  [return: MarshalAs(UnmanagedType.Bool)]
+  private static extern bool GetFileTime(SafeFileHandle file, out long creationTime, out long lastAccessTime, out long lastWriteTime);
 }
 #endif

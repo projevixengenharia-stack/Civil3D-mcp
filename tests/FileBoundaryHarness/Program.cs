@@ -408,7 +408,8 @@ static bool CreateJunction(string junctionPath, string targetDirectory)
     using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
     {
       FileName = "cmd.exe",
-      ArgumentList = { "/c", "mklink", "/J", junctionPath, targetDirectory },
+      // Arguments rather than ArgumentList, which .NET Framework (the Civil 3D 2024 runtime) lacks.
+      Arguments = $"/c mklink /J \"{junctionPath}\" \"{targetDirectory}\"",
       RedirectStandardOutput = true,
       RedirectStandardError = true,
       UseShellExecute = false,
@@ -456,7 +457,38 @@ static int GetFreeTcpPort()
 #if NETFRAMEWORK
 static class Net48TestShims
 {
+  private const int SymbolicLinkFlagAllowUnprivilegedCreate = 0x2;
+
   public static async Task<T> WaitAsync<T>(this Task<T> task, TimeSpan timeout) =>
     await Task.WhenAny(task, Task.Delay(timeout)) == task ? await task : throw new TimeoutException();
+
+  extension(File)
+  {
+    // Same failure shape as .NET: IOException when the privilege or Developer Mode is missing.
+    public static void CreateSymbolicLink(string path, string pathToTarget)
+    {
+      if (!CreateSymbolicLinkW(path, pathToTarget, SymbolicLinkFlagAllowUnprivilegedCreate))
+      {
+        throw new IOException(new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()).Message);
+      }
+    }
+  }
+
+  extension(FileInfo info)
+  {
+    // The checks only test for null: non-null whenever the path is still a reparse point.
+    public string? LinkTarget
+    {
+      get
+      {
+        info.Refresh();
+        return info.Exists && (info.Attributes & FileAttributes.ReparsePoint) != 0 ? info.FullName : null;
+      }
+    }
+  }
+
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+  [return: MarshalAs(UnmanagedType.U1)]
+  private static extern bool CreateSymbolicLinkW(string symlinkFileName, string targetFileName, int flags);
 }
 #endif

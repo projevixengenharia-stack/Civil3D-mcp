@@ -476,7 +476,9 @@ commands in between, all ok, median 0.10 s.
   binding redirects and ships an older `System.Runtime.CompilerServices.Unsafe`), and makes
   `NetworkStream` reads honour cancellation so the disconnect monitor cannot stall responses.
 - Run the boundary/RPC harness on the 2024 runtime:
-  `dotnet build tests/FileBoundaryHarness/FileBoundaryHarness.csproj -p:TargetFramework=net48`
+  `dotnet restore tests/FileBoundaryHarness/FileBoundaryHarness.csproj -p:TargetFramework=net48`, then
+  `dotnet build --no-restore tests/FileBoundaryHarness/FileBoundaryHarness.csproj -p:TargetFramework=net48`
+  (a plain build over an existing net8 `obj` can miss the net48 reference assemblies: MSB3644)
   then `tests/FileBoundaryHarness/bin/Debug/net48/FileBoundaryHarness.exe` (restore without the
   property afterwards before the next net8 run).
 - Both install and `-Uninstall` refuse while a running Civil 3D holds the bundle DLL
